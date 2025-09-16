@@ -13,7 +13,7 @@ TODAY = date.today().strftime("%Y-%m-%d")
 st.title("Stock Prediction App")
 
 # Stock input
-selected_stock = st.text_input("Select dataset for prediction", "AAPL")
+selected_stock = st.text_input("Enter stock symbol (e.g., AAPL, MSFT, TSLA)", "AAPL")
 
 # Check if stock symbol is entered
 if not selected_stock:
@@ -28,6 +28,8 @@ else:
     def load_data(ticker):
         try:
             data = yf.download(ticker, START, TODAY)
+            if data is None or data.empty:
+                return None
             data.reset_index(inplace=True)
             return data
         except Exception:
@@ -36,10 +38,13 @@ else:
     data_load_state = st.text("Loading data...")
 
     # Load data
-    data = load_data(selected_stock)
+    data = load_data(selected_stock.upper())  # Ensure ticker is uppercase
 
     if data is None or data.empty:
-        st.error("Could not fetch data for this stock symbol. Please try another (e.g., AAPL, MSFT, TSLA).")
+        st.error(
+            f"Could not fetch data for '{selected_stock}'. "
+            "Check if the symbol is correct or try another (e.g., AAPL, MSFT, TSLA, AMZN)."
+        )
     else:
         data_load_state.text("Loading data...done!")
 
@@ -72,7 +77,10 @@ else:
         df_train = df_train.rename(columns={"Date": "ds", "Close": "y"})
 
         if df_train.empty or len(df_train) < 30:
-            st.error("No sufficient data found for this stock symbol. Please try another (e.g., AAPL, MSFT, TSLA).")
+            st.error(
+                f"Not enough data available for '{selected_stock}' to train Prophet. "
+                "Please try another symbol (e.g., AAPL, MSFT, TSLA, AMZN)."
+            )
         else:
             m = Prophet()
             m.fit(df_train)
