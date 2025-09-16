@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import date
+import pandas as pd
 
 import yfinance as yf
 from prophet import Prophet
@@ -18,7 +19,7 @@ selected_stock = st.text_input("Enter stock ticker (e.g., AAPL, GOOG, INFY.NS):"
 n_years = st.slider("Years of prediction:", 1, 4)
 period = n_years * 365
 
-# Load data from Yahoo Finance
+# Load data
 @st.cache_data
 def load_data(ticker):
     try:
@@ -26,13 +27,13 @@ def load_data(ticker):
         data.reset_index(inplace=True)
         return data
     except Exception as e:
-        return None
+        return pd.DataFrame()  # return empty dataframe on error
 
 data_load_state = st.text("Loading data...")
 data = load_data(selected_stock)
 
-# Check if data is valid
-if data is None or data.empty:
+# Handle empty data
+if data.empty:
     st.error(f"No data available for {selected_stock}. Try another ticker.")
     st.stop()
 
@@ -61,20 +62,24 @@ st.write(df_train.head())
 st.write("Shape:", df_train.shape)
 st.write("Missing values:", df_train.isna().sum())
 
-# Forecast
-m = Prophet()
-m.fit(df_train)
-future = m.make_future_dataframe(periods=period)
-forecast = m.predict(future)
+# Fit Prophet only if data exists
+if df_train.empty:
+    st.error("No valid data to train Prophet model.")
+    st.stop()
+else:
+    m = Prophet()
+    m.fit(df_train)
+    future = m.make_future_dataframe(periods=period)
+    forecast = m.predict(future)
 
-# Show forecast
-st.subheader("Forecast data")
-st.write(forecast.tail())
+    # Show forecast
+    st.subheader("Forecast data")
+    st.write(forecast.tail())
 
-st.write(f"Forecast plot for {n_years} years")
-fig1 = plot_plotly(m, forecast)
-st.plotly_chart(fig1)
+    st.write(f"Forecast plot for {n_years} years")
+    fig1 = plot_plotly(m, forecast)
+    st.plotly_chart(fig1)
 
-st.write("Forecast components")
-fig2 = m.plot_components(forecast)
-st.write(fig2)
+    st.write("Forecast components")
+    fig2 = m.plot_components(forecast)
+    st.write(fig2)
