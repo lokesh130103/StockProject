@@ -31,36 +31,42 @@ else:
         data = load_data(selected_stock)
         data_load_state.text("Loading data...done!")
 
-        st.subheader('Raw Data')
-        st.write(data.tail())
+        if data.empty:
+            st.error("No data found for this stock symbol. Please try another.")
+        else:
+            st.subheader('Raw Data')
+            st.write(data.tail())
 
-        def plot_raw_data():
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=data['Date'], y=data['Open'], name='stock_open', line=dict(color='green', width=1)))  # Adjust width here
-            fig.add_trace(go.Scatter(x=data['Date'], y=data['Close'], name='stock_close', line=dict(color='red', width=1)))  # Adjust width here
-            fig.layout.update(title_text="Time Series Data", xaxis_rangeslider_visible=True)
-            st.plotly_chart(fig)
+            def plot_raw_data():
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=data['Date'], y=data['Open'], 
+                                         name='stock_open', line=dict(color='green', width=1)))
+                fig.add_trace(go.Scatter(x=data['Date'], y=data['Close'], 
+                                         name='stock_close', line=dict(color='red', width=1)))
+                fig.layout.update(title_text="Time Series Data", xaxis_rangeslider_visible=True)
+                st.plotly_chart(fig)
 
+            plot_raw_data()
 
+            # Forecasting
+            df_train = data[['Date', 'Close']].dropna()
+            df_train = df_train.rename(columns={"Date": "ds", "Close": "y"})
 
+            if len(df_train) < 2:
+                st.error("Not enough data available for this stock symbol to train Prophet.")
+            else:
+                m = Prophet()
+                m.fit(df_train)
+                future = m.make_future_dataframe(periods=period)
+                forecast = m.predict(future)
 
-        plot_raw_data()
+                st.subheader('Forecast Data')
+                st.write(forecast.tail())
 
-        # Forecasting
-        df_train = data[['Date', 'Close']]
-        df_train = df_train.rename(columns={"Date": "ds", "Close": "y"})
-        m = Prophet()
-        m.fit(df_train)
-        future = m.make_future_dataframe(periods=period)
-        forecast = m.predict(future)
+                st.write('Forecast Plot')
+                fig1 = plot_plotly(m, forecast)
+                st.plotly_chart(fig1)
 
-        st.subheader('Forecast Data')
-        st.write(forecast.tail())
-
-        st.write('forecast data')
-        fig1 = plot_plotly(m, forecast)
-        st.plotly_chart(fig1)
-
-        st.write('forecast components')
-        fig2 = m.plot_components(forecast)
-        st.write(fig2)
+                st.write('Forecast Components')
+                fig2 = m.plot_components(forecast)
+                st.write(fig2)
